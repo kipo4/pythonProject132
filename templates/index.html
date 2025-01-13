@@ -22,6 +22,12 @@
         .task-card.unassigned {
             border-left: 5px solid gray;
         }
+        .task-card.expired {
+            border-left: 5px solid red;
+        }
+        .task-status {
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -38,24 +44,49 @@
         {% endif %}
 
         <div class="mt-4">
-            <h3>Все задачи</h3>
-            {% for task in tasks %}
-            <div class="task-card {% if task.assigned_to %}assigned{% else %}unassigned{% endif %}">
-                <h5>{{ task.title }}</h5>
-                <p>Описание: {{ task.description }}</p>
-                <p>Дедлайн: {{ task.deadline.strftime('%Y-%m-%d %H:%M') }}</p>
-                {% if task.assigned_to %}
-                    <p>Сотрудник: {{ task.assigned_to }}</p>
-                {% else %}
-                    <p>Задача не назначена</p>
-                {% endif %}
-                {% if user.role == 'manager' %}
-                <form action="/delete_task/{{ task.id }}" method="POST" style="display: inline;">
-                    <button type="submit" class="btn btn-danger btn-sm">Удалить</button>
-                </form>
-                {% endif %}
-            </div>
-            {% endfor %}
+            {% if tasks %}
+                <h3>Все задачи</h3>
+                {% for task in tasks %}
+                <div class="task-card
+                    {% if task.deadline < now %}expired{% elif task.assigned_to %}assigned{% else %}unassigned{% endif %}">
+                    <h5>{{ task.title }}</h5>
+                    <p>Описание: {{ task.description }}</p>
+                    <p>Дедлайн: {{ task.deadline.strftime('%Y-%m-%d %H:%M') }}</p>
+                    <p>Сотрудник:
+                        {% if task.assigned_to %}
+                            {{ assigned_users[task.assigned_to] }}
+                        {% else %}
+                            Задача не назначена
+                        {% endif %}
+                    </p>
+                    <p>Статус:
+                        <span class="task-status">
+                            {% if task.status == 'pending' %}
+                                Ожидает выполнения
+                            {% elif task.status == 'completed' %}
+                                Завершена
+                            {% elif task.status == 'in_progress' %}
+                                В процессе
+                            {% else %}
+                                Неизвестно
+                            {% endif %}
+                        </span>
+                    </p>
+                    {% if user.role == 'manager' %}
+                    <form action="/delete_task/{{ task.id }}" method="POST" style="display: inline;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-danger btn-sm">Удалить</button>
+                    </form>
+                    {% elif user.role == 'employee' and not task.assigned_to %}
+                    <a href="/take_task/{{ task.id }}" class="btn btn-success btn-sm">Взять задачу</a>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="alert alert-info" role="alert">
+                    На данный момент задач нет. Отдохните или создайте новую задачу.
+                </div>
+            {% endif %}
         </div>
     </div>
 </body>

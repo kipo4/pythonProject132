@@ -1,15 +1,18 @@
 from flask import Flask, render_template, request, redirect, url_for, session
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
+from flask_wtf.csrf import CSRFProtect
 
 app = Flask(__name__)
 app.secret_key = "your_secret_key"
 
-# Настройка базы данных H2
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///tasks.db'  # Заменить на H2 при необходимости
+# Настройка базы данных
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///tasks.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
+
+csrf = CSRFProtect(app)
 
 # Модель для пользователя
 class User(db.Model):
@@ -34,13 +37,19 @@ def index():
         return redirect(url_for('login'))
 
     user = User.query.get(session['user_id'])
+    if not user:
+        return "Пользователь не найден. Пожалуйста, войдите снова.", 404
 
-    if user.role == "manager":
-        tasks = Task.query.all()
-    else:
-        tasks = Task.query.filter((Task.assigned_to == user.id) | (Task.assigned_to == None)).all()
+    tasks = Task.query.all() if user.role == "manager" else Task.query.filter(
+        (Task.assigned_to == user.id) | (Task.assigned_to == None)).all()
 
-    return render_template('index.html', user=user, tasks=tasks)
+    now = datetime.now()
+
+    # Создание словаря ID -> имя пользователя
+    assigned_users = {u.id: u.username for u in User.query.all()}
+
+    return render_template('index.html', user=user, tasks=tasks, now=now, assigned_users=assigned_users)
+
 
 
 # Регистрация пользователя
@@ -63,8 +72,11 @@ def register():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
+        username = request.form.get('username')
+        password = request.form.get('password')
+
+        if not username or not password:
+            return "Данные формы отсутствуют", 400
 
         user = User.query.filter_by(username=username, password=password).first()
         if user:
@@ -72,9 +84,7 @@ def login():
             return redirect(url_for('index'))
 
         return "Неверные данные для входа"
-
     return render_template('login.html')
-
 # Выход
 @app.route('/logout')
 def logout():

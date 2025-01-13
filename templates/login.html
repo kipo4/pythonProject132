@@ -12,6 +12,8 @@
             <div class="col-md-4">
                 <h1 class="text-center mb-4">Вход</h1>
                 <form method="post" class="bg-secondary p-4 rounded">
+                    <!-- CSRF-токен -->
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="mb-3">
                         <label for="username" class="form-label">Имя пользователя</label>
                         <input type="text" class="form-control" id="username" name="username" required>
